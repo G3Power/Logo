@@ -1,98 +1,74 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import React from "react";
+import { Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useStore } from "../lib/store";
+import { useAuth } from "../lib/auth";
+import { useLogoFonts } from "../lib/fonts";
+import { LogoPreview } from "../components/LogoPreview";
+import { Button, Card, EmptyState, Screen, Subtitle, Title, useTheme } from "../components/ui";
+import { spacing } from "../theme";
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const t = useTheme();
+  const { state, deleteProject } = useStore();
+  const auth = useAuth();
+  const specs = state.projects.map((p) => p.spec);
+  const fontsReady = useLogoFonts(specs);
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <Screen>
+      <Title>Your logos</Title>
+      <Subtitle>
+        Describe your business, creator brand, or idea and get unique logo concepts you can refine
+        and export — complete with app icons.
+      </Subtitle>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Button label="Create a new logo" onPress={() => router.push("/brief")} />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <View style={{ height: spacing.lg }} />
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {!state.hydrated ? null : state.projects.length === 0 ? (
+        <EmptyState
+          title="No logos yet"
+          body="Tap 'Create a new logo' to generate your first set of concepts."
+        />
+      ) : (
+        <View style={{ gap: spacing.md }}>
+          {state.projects.map((project) => (
+            <Card key={project.id} onPress={() => router.push(`/editor/${project.id}`)}>
+              <LogoPreview spec={project.spec} height={120} fontsReady={fontsReady} />
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: spacing.sm,
+                }}
+              >
+                <View>
+                  <Text style={{ fontWeight: "700", fontSize: 16, color: t.text }}>
+                    {project.brief.brandName}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: t.textSecondary }}>
+                    {project.brief.industry} · edited {new Date(project.updatedAt).toLocaleDateString()}
+                  </Text>
+                </View>
+                <Pressable onPress={() => deleteProject(project.id)} hitSlop={8}>
+                  <Text style={{ color: t.danger, fontWeight: "600", fontSize: 13 }}>Delete</Text>
+                </Pressable>
+              </View>
+            </Card>
+          ))}
+        </View>
+      )}
+
+      <View style={{ height: spacing.xl }} />
+      <Pressable onPress={() => router.push("/account")}>
+        <Text style={{ color: t.accent, fontWeight: "600", textAlign: "center" }}>
+          {auth.user ? `Signed in as ${auth.user.email}` : "Sign in to sync your logos"}
+        </Text>
+      </Pressable>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});
