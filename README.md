@@ -36,9 +36,10 @@ itself) falls back to the built-in concept generator, and projects persist local
 
 | Variable | Purpose |
 | --- | --- |
-| `OPENAI_API_KEY` | Enables LLM concept generation, NL refinement, and AI image marks |
+| `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY`) | Enables Claude-powered concept generation and NL refinement |
+| `OPENAI_API_KEY` | Enables OpenAI text features and AI image marks (image generation requires OpenAI) |
 | `OPENAI_BASE_URL` | Optional OpenAI-compatible gateway URL (e.g. Vercel AI Gateway) |
-| `LOGO_TEXT_MODEL` | Structured-output model (default `gpt-4o-mini`) |
+| `LOGO_TEXT_MODEL` | Structured-output model (default `claude-sonnet-4-6` with an Anthropic key, else `gpt-4o-mini`) |
 | `LOGO_IMAGE_MODEL` | Image model for unique marks (default `gpt-image-1`) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Store generated AI marks in Supabase storage (bucket `logo-assets`); falls back to data URLs |
 | `PORT` | API port (default 8787) |

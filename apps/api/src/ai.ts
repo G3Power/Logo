@@ -1,5 +1,10 @@
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI, type OpenAIProvider } from "@ai-sdk/openai";
-import { generateObject, experimental_generateImage as generateImage } from "ai";
+import {
+  generateObject,
+  experimental_generateImage as generateImage,
+  type LanguageModel,
+} from "ai";
 import { z } from "zod";
 import {
   FONT_PAIRINGS,
@@ -64,26 +69,35 @@ function expandConcept(
 }
 
 export class AiService {
-  private provider: OpenAIProvider | null;
+  /** Text model: Claude when an Anthropic key is set, otherwise OpenAI. */
+  private textModel: LanguageModel | null;
+  /** Image generation requires OpenAI (Anthropic has no image models). */
+  private openai: OpenAIProvider | null;
 
   constructor(private env: ApiEnv) {
-    this.provider = env.openaiApiKey
+    this.openai = env.openaiApiKey
       ? createOpenAI({ apiKey: env.openaiApiKey, baseURL: env.openaiBaseUrl })
       : null;
+    if (env.anthropicApiKey) {
+      const anthropic = createAnthropic({ apiKey: env.anthropicApiKey });
+      this.textModel = anthropic(env.textModel);
+    } else {
+      this.textModel = this.openai ? this.openai(env.textModel) : null;
+    }
   }
 
   get textConfigured(): boolean {
-    return this.provider !== null;
+    return this.textModel !== null;
   }
 
   get imageConfigured(): boolean {
-    return this.provider !== null;
+    return this.openai !== null;
   }
 
   async generateConcepts(brief: Brief, count: number): Promise<LogoSpec[]> {
-    if (!this.provider) throw new Error("AI provider not configured");
+    if (!this.textModel) throw new Error("AI provider not configured");
     const { object } = await generateObject({
-      model: this.provider(this.env.textModel),
+      model: this.textModel,
       schema: aiResponseSchema,
       system:
         "You are a senior brand identity designer. You design logo concepts by " +
@@ -108,7 +122,7 @@ export class AiService {
   }
 
   async refine(spec: LogoSpec, instruction: string): Promise<LogoSpec> {
-    if (!this.provider) throw new Error("AI provider not configured");
+    if (!this.textModel) throw new Error("AI provider not configured");
     const brief: Brief = {
       brandName: spec.brandName,
       tagline: spec.tagline,
@@ -116,7 +130,7 @@ export class AiService {
       keywords: [],
     };
     const { object } = await generateObject({
-      model: this.provider(this.env.textModel),
+      model: this.textModel,
       schema: aiConceptSchema,
       system:
         "You revise an existing logo concept according to the user's instruction. " +
@@ -152,9 +166,9 @@ export class AiService {
 
   /** Generate a unique raster mark; returns PNG bytes. */
   async generateMark(brief: Brief, markPrompt?: string): Promise<Uint8Array> {
-    if (!this.provider) throw new Error("AI provider not configured");
+    if (!this.openai) throw new Error("OpenAI is required for image generation");
     const { image } = await generateImage({
-      model: this.provider.image(this.env.imageModel),
+      model: this.openai.image(this.env.imageModel),
       prompt:
         `A single iconic logo mark for "${brief.brandName}", a ${brief.industry} brand. ` +
         (markPrompt ? `${markPrompt}. ` : "") +
